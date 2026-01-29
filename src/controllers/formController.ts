@@ -1,7 +1,7 @@
 import type { Request, Response } from "express"
 import path from "path"
 import { z } from "zod"
-import * as Model from "../models/SurveyorFormModel"
+import * as Model from "../models/SurveyorFormModel.js"
 //import type { Request, Response } from "express"
 
 

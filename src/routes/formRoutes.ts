@@ -2,8 +2,8 @@ import { Router } from "express"
 import multer from "multer"
 import path from "path"
 import fs from "fs"
-import { submitForm, getForms, markFormReviewed, getStats ,approveForm} from "../controllers/formController"
-import { requireAdmin } from "../middleware/requireAdmin"
+import { submitForm, getForms, markFormReviewed, getStats ,approveForm} from "../controllers/formController.js"
+import { requireAdmin } from "../middleware/requireAdmin.js"
 
 const router = Router()
 
