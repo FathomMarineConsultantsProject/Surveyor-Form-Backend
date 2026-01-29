@@ -63,5 +63,7 @@ app.use("/api/form", formRoutes)
 
 // ✅ Error handler LAST
 app.use(errorHandler)
+app.get("/", (req, res) => res.json({ ok: true, message: "Backend running ✅" }))
+
 
 export default app
