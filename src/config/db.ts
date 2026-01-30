@@ -1,30 +1,26 @@
-import { Pool } from "pg"
-import dotenv from "dotenv"
+import { Pool } from "pg";
+import dotenv from "dotenv";
 
-dotenv.config()
+dotenv.config();
 
 if (!process.env.DATABASE_URL) {
-  throw new Error("Missing DATABASE_URL in .env")
+  throw new Error("Missing DATABASE_URL");
 }
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-})
+  ssl: { rejectUnauthorized: false }, // ✅ required for most RDS setups
+});
 
-// ✅ LOG when DB is connected
 pool.on("connect", () => {
-  console.log("✅ PostgreSQL database connected successfully")
-})
+  console.log("✅ PostgreSQL database connected successfully");
+});
 
-// ✅ LOG database errors (very important)
 pool.on("error", (err) => {
-  console.error("❌ PostgreSQL connection error:", err)
-})
+  console.error("❌ PostgreSQL connection error:", err);
+});
 
-export async function query<T = any>(
-  text: string,
-  params?: any[]
-): Promise<T[]> {
-  const res = await pool.query(text, params)
-  return res.rows as T[]
+export async function query<T = any>(text: string, params?: any[]): Promise<T[]> {
+  const res = await pool.query(text, params);
+  return res.rows as T[];
 }

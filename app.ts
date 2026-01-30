@@ -19,13 +19,13 @@
 //   "http://localhost:5174",
 //   "https://surveyor-admin-page-git-main-fmc-projects-projects.vercel.app",
 //   "https://surveyor-admin-page.vercel.app",
-//   "https://surveyor-register-page-k4cy.vercel.app",
+//   "https://surveyor-register-page-k4cy.vercel.app",A
 // ]
 
 // const corsOptions: cors.CorsOptions = {
 //   origin: (origin, callback) => {
 //     // Allow Postman / server-to-server
-//     if (!origin) return callback(null, true)
+//     if (!origin) return callback(null, true)AA
 
 //     if (allowedOrigins.includes(origin)) {
 //       return callback(null, true)
@@ -72,7 +72,6 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import "express-async-errors";
-
 import adminAuthRoutes from "./src/routes/adminAuthRoutes.js";
 import formRoutes from "./src/routes/formRoutes.js";
 // import { errorHandler } from "./src/middleware/errorHandler.js";
@@ -107,7 +106,6 @@ app.use(
 
 // ✅ IMPORTANT for browser preflight
 app.options("*", cors());
-
 app.use(express.json());
 
 // health
@@ -118,6 +116,10 @@ app.use("/api/admin", adminAuthRoutes);
 app.use("/api/form", formRoutes);
 
 // app.use(errorHandler);
+app.get("/", (req, res) => {
+  res.json({ ok: true, message: "Surveyor backend running" });
+});
+
 
 export default app;
 
