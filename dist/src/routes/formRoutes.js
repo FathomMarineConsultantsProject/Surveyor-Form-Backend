@@ -5,7 +5,15 @@ import fs from "fs";
 import { submitForm, getForms, markFormReviewed, getStats, approveForm } from "../controllers/formController.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
 const router = Router();
-const uploadDir = process.env.UPLOAD_DIR || "uploads";
+// const uploadDir = process.env.UPLOAD_DIR || "uploads"
+const uploadDir = process.env.VERCEL
+    ? "/tmp/uploads"
+    : process.env.UPLOAD_DIR
+        ? path.isAbsolute(process.env.UPLOAD_DIR)
+            ? process.env.UPLOAD_DIR
+            : path.join(process.cwd(), process.env.UPLOAD_DIR)
+        : path.join(process.cwd(), "uploads");
+// Ensure upload dir exists
 if (!fs.existsSync(uploadDir))
     fs.mkdirSync(uploadDir, { recursive: true });
 const storage = multer.diskStorage({
