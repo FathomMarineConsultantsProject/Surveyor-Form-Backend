@@ -65,7 +65,7 @@ const allowedOrigins = [
     "http://127.0.0.1:5173",
     "http://localhost:5174",
     "https://surveyor-admin-page.vercel.app",
-    "https://surveyor-register-page-k4cy.vercel.app"
+    "https://surveyor-admin-page-git-main-fmc-projects-projects.vercel.app"
 ];
 app.use(cors({
     origin: (origin, cb) => {
