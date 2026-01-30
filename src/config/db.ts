@@ -1,19 +1,11 @@
 import { Pool } from "pg";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("❌ DATABASE_URL is missing");
-}
+if (!connectionString) throw new Error("DATABASE_URL is missing");
 
 export const pool = new Pool({
   connectionString,
-  ssl: process.env.NODE_ENV === "production"
-    ? { rejectUnauthorized: false }
-    : false,
+  ssl: { rejectUnauthorized: false }, // ✅ Vercel + RDS fix
 });
 
 export async function query<T = any>(text: string, params?: any[]) {
