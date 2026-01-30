@@ -80,46 +80,65 @@ dotenv.config();
 
 const app = express();
 
+// 1. Explicit Allowed Origins (Production & Local)
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "http://localhost:5174",
   "https://surveyor-admin-page.vercel.app",
-  "https://surveyor-register-page-k4cy.vercel.app"
+  "https://surveyor-admin-page-git-main-fmc-projects-projects.vercel.app"
 ];
 
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      // allow Postman/server-to-server
-      if (!origin) return cb(null, true);
+// 2. Dynamic CORS Configuration
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, Postman, or server-to-server)
+    if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) return cb(null, true);
+    // Check against explicit list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
 
-      return cb(new Error(`Not allowed by CORS: ${origin}`));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
-  })
-);
+    // ✅ FIX: Allow ALL Vercel preview URLs automatically
+    // This allows any URL ending in .vercel.app (e.g. your -mmb6thaes- url)
+    if (origin.endsWith(".vercel.app")) {
+      return callback(null, true);
+    }
 
-// ✅ IMPORTANT for browser preflight
-app.options("*", cors());
+    console.error("❌ Blocked by CORS:", origin);
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+};
+
+// 3. Apply CORS Middleware
+app.use(cors(corsOptions));
+
+// 4. Handle Preflight Requests Explicitly
+// Passing 'corsOptions' ensures OPTIONS requests get the same logic as POST/GET
+app.options("*", cors(corsOptions));
+
 app.use(express.json());
 
-// health
-app.get("/health", (req, res) => res.json({ ok: true }));
+// Health Check
+app.get("/health", (req, res) => {
+    res.json({ ok: true });
+});
 
-// routes
+// Routes
 app.use("/api/admin", adminAuthRoutes);
 app.use("/api/form", formRoutes);
 
+// Error Handler
 // app.use(errorHandler);
-app.get("/", (req, res) => {
-  res.json({ ok: true, message: "Surveyor backend running" });
-});
 
+// Root Endpoint
+app.get("/", (req, res) => {
+    res.json({ ok: true, message: "Backend running ✅" });
+});
 
 export default app;
 

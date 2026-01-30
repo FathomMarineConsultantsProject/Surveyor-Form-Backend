@@ -67,6 +67,8 @@ const allowedOrigins = [
     "https://surveyor-admin-page.vercel.app",
     "https://surveyor-admin-page-git-main-fmc-projects-projects.vercel.app"
 ];
+
+
 app.use(cors({
     origin: (origin, cb) => {
         // allow Postman/server-to-server
