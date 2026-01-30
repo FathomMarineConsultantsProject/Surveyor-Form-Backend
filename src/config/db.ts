@@ -3,31 +3,30 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+// ✅ Must exist in local + vercel
 if (!process.env.DATABASE_URL) {
-  throw new Error("Missing DATABASE_URL in environment variables");
+  throw new Error("❌ DATABASE_URL is missing");
 }
 
+// ✅ AWS RDS requires SSL from Vercel
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-
-  // ✅ REQUIRED for AWS RDS connections from Vercel
   ssl: {
     rejectUnauthorized: false,
   },
 });
 
+// ✅ Log successful connection
 pool.on("connect", () => {
-  console.log("✅ PostgreSQL database connected successfully");
+  console.log("✅ Connected to AWS RDS PostgreSQL Successfully");
 });
 
+// ✅ Log DB connection errors
 pool.on("error", (err) => {
-  console.error("❌ PostgreSQL connection error:", err);
+  console.error("❌ PostgreSQL Error:", err.message);
 });
 
-export async function query<T = any>(
-  text: string,
-  params?: any[]
-): Promise<T[]> {
+export async function query<T = any>(text: string, params?: any[]) {
   const res = await pool.query(text, params);
   return res.rows as T[];
 }
