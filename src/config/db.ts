@@ -17,7 +17,7 @@ export const pool = new Pool({
 });
 
 // ✅ Log successful connection
-pool.on("connect", () => {
+pool.on("connect", () => {  
   console.log("✅ Connected to AWS RDS PostgreSQL Successfully");
 });
 
