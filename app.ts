@@ -75,7 +75,7 @@ import "express-async-errors";
 import adminAuthRoutes from "./src/routes/adminAuthRoutes.js";
 import formRoutes from "./src/routes/formRoutes.js";
 // import { errorHandler } from "./src/middleware/errorHandler.js";
-
+import { pool } from "./src/config/db.js";
 dotenv.config();
 
 const app = express();
@@ -126,6 +126,26 @@ app.use(express.json());
 // Health Check
 app.get("/health", (req, res) => {
     res.json({ ok: true });
+});
+app.get("/db-check", async (req, res) => {
+  try {
+    const client = await pool.connect(); // Try to get a client from the pool
+    const result = await client.query('SELECT NOW()'); // Run a simple query
+    client.release(); // Release the client back to the pool
+    
+    res.json({ 
+      status: "success", 
+      message: "Connected to AWS RDS Postgres!", 
+      time: result.rows[0] 
+    });
+  } catch (error: any) {
+    console.error("Database Error:", error);
+    res.status(500).json({ 
+      status: "error", 
+      message: "Failed to connect to DB", 
+      error: error.message 
+    });
+  }
 });
 
 // Routes
