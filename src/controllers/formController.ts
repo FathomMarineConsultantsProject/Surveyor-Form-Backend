@@ -17,7 +17,7 @@ function parseJsonField<T>(value: any, fallback: T): T {
   }
 }
 const nameRegex = /^[A-Za-z\s]+$/
-const phoneRegex = /^\+?\d+$/
+const phoneRegex = /^\+?\d{7,15}$/
 const formSchema = z.object({
   firstName: z.string().min(1).refine(v => nameRegex.test(v.trim()), "First name must contain letters only"),
   lastName: z.string().min(1).refine(v => nameRegex.test(v.trim()), "Last name must contain letters only"),
