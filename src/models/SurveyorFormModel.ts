@@ -1,48 +1,57 @@
-import { query } from "../config/db.js"
+import { query } from "../config/db.js";
 
 export type SurveyorFormInsert = {
-  firstName: string
-  lastName: string
-  phoneNumber: string
-  mobileNumber?: string | null
-  nationality: string
-  employmentStatus: string
-  companyName?: string | null
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  mobileNumber?: string | null;
+  nationality: string;
+  employmentStatus: string;
+  companyName?: string | null;
 
-  email: string
-  dobDD: string
-  dobMM: string
-  dobYYYY: string
-  yearStarted?: string | null
-  heardAbout: string
+  email: string;
+  dobDD: string;
+  dobMM: string;
+  dobYYYY: string;
+  yearStarted?: string | null;
+  heardAbout: string;
 
-  street1: string
-  street2?: string | null
-  city: string
-  postalCode: string
-  country: string
-  stateRegion: string
+  street1: string;
+  street2?: string | null;
+  city: string;
+  postalCode: string;
+  country: string;
+  stateRegion: string;
 
-  discipline: string
-  rank: string
+  discipline: string;
+  rank: string;
 
-  qualifications: string[]
-  experienceByQualification: Record<string, { years: string; months: string; days: string }>
+  qualifications: string[];
+  experienceByQualification: Record<
+    string,
+    { years: string; months: string; days: string }
+  >;
 
-  vesselTypes: string[]
-  shoresideExperience: string[]
-  surveyingExperience: string[]
-  vesselTypeSurveyingExperience: string[]
-  accreditations: string[]
-  coursesCompleted: string[]
+  vesselTypes: string[];
+  shoresideExperience: string[];
+  surveyingExperience: string[];
+  vesselTypeSurveyingExperience: string[];
+  accreditations: string[];
+  coursesCompleted: string[];
 
-  references: { name: string; contact: string }[]
+  references: { name: string; contact: string }[];
 
-  inspectionCost: string
-  marketingConsent: boolean
+  inspectionCost: string;
+  marketingConsent: boolean;
 
-  photoPath: string
-  cvPath: string
+  photoPath: string;
+  cvPath: string;
+};
+
+function normalizePhone(v?: string | null) {
+  if (!v) return null;
+  // keep digits + optional leading +
+  return v.trim().replace(/[^\d+]/g, "");
 }
 
 export async function createForm(payload: SurveyorFormInsert) {
@@ -63,10 +72,10 @@ export async function createForm(payload: SurveyorFormInsert) {
       $8,$9,$10,$11,$12,$13,
       $14,$15,$16,$17,$18,$19,
       $20,$21,
-      $22,$23,
-      $24,$25,$26,$27,
-      $28,$29,
-      $30,
+      $22::jsonb,$23::jsonb,
+      $24::jsonb,$25::jsonb,$26::jsonb,$27::jsonb,
+      $28::jsonb,$29::jsonb,
+      $30::jsonb,
       $31,$32,
       $33,$34
     )
@@ -74,8 +83,8 @@ export async function createForm(payload: SurveyorFormInsert) {
     [
       payload.firstName,
       payload.lastName,
-      payload.phoneNumber,
-      payload.mobileNumber ?? null,
+      normalizePhone(payload.phoneNumber),
+      normalizePhone(payload.mobileNumber ?? null),
       payload.nationality,
       payload.employmentStatus,
       payload.companyName ?? null,
@@ -116,9 +125,9 @@ export async function createForm(payload: SurveyorFormInsert) {
       payload.photoPath,
       payload.cvPath,
     ]
-  )
+  );
 
-  return rows[0]
+  return rows[0];
 }
 
 export async function listForms(limit = 25, offset = 0) {
@@ -175,8 +184,9 @@ export async function listForms(limit = 25, offset = 0) {
      ORDER BY created_at DESC
      LIMIT $1 OFFSET $2`,
     [limit, offset]
-  )
+  );
 }
+
 export async function getStats() {
   const rows = await query(
     `SELECT
@@ -185,10 +195,9 @@ export async function getStats() {
       COUNT(*) FILTER (WHERE COALESCE(approved,false) = true)::int AS approved,
       COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::int AS new_today
      FROM surveyor_forms`
-  )
-  return rows[0]
+  );
+  return rows[0];
 }
-
 
 export async function markReviewed(id: number) {
   const rows = await query(
@@ -198,9 +207,10 @@ export async function markReviewed(id: number) {
      WHERE id = $1
      RETURNING id, reviewed, reviewed_at`,
     [id]
-  )
-  return rows[0]
+  );
+  return rows[0];
 }
+
 export async function approveForm(id: number) {
   const rows = await query(
     `UPDATE surveyor_forms
@@ -211,7 +221,6 @@ export async function approveForm(id: number) {
        AND approved = false
      RETURNING id, approved, approved_at`,
     [id]
-  )
-  return rows[0]
+  );
+  return rows[0];
 }
-
