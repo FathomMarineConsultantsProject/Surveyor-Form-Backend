@@ -17,12 +17,12 @@ function parseJsonField<T>(value: any, fallback: T): T {
   }
 }
 const nameRegex = /^[A-Za-z\s]+$/
-const phoneRegex = /^\+?\d{7,15}$/
+//const phoneRegex = /^\+?\d{7,15}$/
 const formSchema = z.object({
   firstName: z.string().min(1).refine(v => nameRegex.test(v.trim()), "First name must contain letters only"),
   lastName: z.string().min(1).refine(v => nameRegex.test(v.trim()), "Last name must contain letters only"),
 
-  phoneNumber: z.string().min(1).refine(v => phoneRegex.test(v.trim()), "Phone must contain digits only"),
+  phoneNumber: z.string().min(1),//.refine(v => phoneRegex.test(v.trim()), "Phone must contain digits only"),
   mobileNumber: z.string().optional().refine(v => !v || phoneRegex.test(v.trim()), "Mobile must contain digits only"),
 
   nationality: z.string().min(1),
