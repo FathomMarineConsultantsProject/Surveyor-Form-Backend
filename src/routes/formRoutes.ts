@@ -48,7 +48,7 @@ function fileFilter(req: any, file: Express.Multer.File, cb: multer.FileFilterCa
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 3 * 1024 * 1024 },
 })
 
 // ✅ PUBLIC (surveyor form submit)
