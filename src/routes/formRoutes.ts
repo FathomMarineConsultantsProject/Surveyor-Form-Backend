@@ -1,45 +1,57 @@
-import express from "express";
-import multer from "multer";
-import path from "path";
+import { Router } from "express"
+import multer from "multer"
+import path from "path"
+import fs from "fs"
+import { submitForm, getForms, markFormReviewed, getStats ,approveForm} from "../controllers/formController.js"
+import { requireAdmin } from "../middleware/requireAdmin.js"
 
-import {
-  submitForm,
-  getForms,
-  markFormReviewed,
-  approveForm,
-} from "../controllers/formController.js";
+const router = Router()
 
-const router = express.Router();
+// const uploadDir = process.env.UPLOAD_DIR || "uploads"
 
-/* ===============================
-   MULTER CONFIG
-================================ */
+const uploadDir = process.env.VERCEL
+  ? "/tmp/uploads"
+  : process.env.UPLOAD_DIR
+    ? path.isAbsolute(process.env.UPLOAD_DIR)
+      ? process.env.UPLOAD_DIR
+      : path.join(process.cwd(), process.env.UPLOAD_DIR)
+    : path.join(process.cwd(), "uploads")
 
-const uploadDir = process.env.UPLOAD_DIR || "uploads";
+// Ensure upload dir exists
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true })
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
+  destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const name = file.fieldname + "-" + Date.now() + ext;
-    cb(null, name);
+    const ext = path.extname(file.originalname)
+    const safeBase = path.basename(file.originalname, ext).replace(/\s+/g, "_")
+    cb(null, `${Date.now()}_${safeBase}${ext}`)
   },
-});
+})
+
+function fileFilter(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+  if (file.fieldname === "photoFile" && !file.mimetype.startsWith("image/")) {
+    return cb(new Error("Photo must be an image"))
+  }
+
+  if (file.fieldname === "cvFile") {
+    const ok =
+      file.mimetype === "application/pdf" ||
+      file.mimetype === "application/msword" ||
+      file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    if (!ok) return cb(new Error("CV must be PDF/DOC/DOCX"))
+  }
+
+  cb(null, true)
+}
 
 const upload = multer({
   storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10 MB
-  },
-});
+  fileFilter,
+  limits: { fileSize: 3 * 1024 * 1024 },
+})
 
-/* ===============================
-   ROUTES
-================================ */
-
-// ✅ Submit surveyor form (multipart)
+// ✅ PUBLIC (surveyor form submit)
 router.post(
   "/submit",
   upload.fields([
@@ -47,15 +59,15 @@ router.post(
     { name: "cvFile", maxCount: 1 },
   ]),
   submitForm
-);
+)
 
-// ✅ Admin: list form records
-router.get("/records", getForms);
+// ✅ ADMIN ONLY
+router.get("/records", requireAdmin, getForms)
+router.get("/stats", requireAdmin, getStats)
+router.patch("/:id/review", requireAdmin, markFormReviewed)
 
-// ✅ Admin: mark reviewed
-router.patch("/review/:id", markFormReviewed);
+router.patch("/:id/approve", requireAdmin, approveForm)
 
-// ✅ Admin: approve form
-router.patch("/approve/:id", approveForm);
+router.get("/ping", (req, res) => res.json({ ok: true, route: "form" }))
 
-export default router;
+export default router
