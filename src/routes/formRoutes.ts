@@ -2,13 +2,19 @@ import { Router } from "express"
 import multer from "multer"
 import path from "path"
 import fs from "fs"
-import { submitForm, getForms, markFormReviewed, getStats ,approveForm} from "../controllers/formController.js"
+
+import {
+  submitForm,
+  getForms,
+  markFormReviewed,
+  getStats,
+  approveForm,
+} from "../controllers/formController.js"
 import { requireAdmin } from "../middleware/requireAdmin.js"
 
 const router = Router()
 
-// const uploadDir = process.env.UPLOAD_DIR || "uploads"
-
+// Vercel: only /tmp is writable
 const uploadDir = process.env.VERCEL
   ? "/tmp/uploads"
   : process.env.UPLOAD_DIR
@@ -21,15 +27,19 @@ const uploadDir = process.env.VERCEL
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true })
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname)
     const safeBase = path.basename(file.originalname, ext).replace(/\s+/g, "_")
     cb(null, `${Date.now()}_${safeBase}${ext}`)
   },
 })
 
-function fileFilter(req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+function fileFilter(
+  _req: any,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback,
+) {
   if (file.fieldname === "photoFile" && !file.mimetype.startsWith("image/")) {
     return cb(new Error("Photo must be an image"))
   }
@@ -38,7 +48,9 @@ function fileFilter(req: any, file: Express.Multer.File, cb: multer.FileFilterCa
     const ok =
       file.mimetype === "application/pdf" ||
       file.mimetype === "application/msword" ||
-      file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      file.mimetype ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
     if (!ok) return cb(new Error("CV must be PDF/DOC/DOCX"))
   }
 
@@ -58,17 +70,15 @@ router.post(
     { name: "photoFile", maxCount: 1 },
     { name: "cvFile", maxCount: 1 },
   ]),
-  submitForm
+  submitForm,
 )
 
 // ✅ ADMIN ONLY
 router.get("/records", requireAdmin, getForms)
 router.get("/stats", requireAdmin, getStats)
 router.patch("/:id/review", requireAdmin, markFormReviewed)
-
 router.patch("/:id/approve", requireAdmin, approveForm)
 
-router.get("/ping", (req, res) => res.json({ ok: true, route: "form" }))
+router.get("/ping", (_req, res) => res.json({ ok: true, route: "form" }))
 
 export default router
-
