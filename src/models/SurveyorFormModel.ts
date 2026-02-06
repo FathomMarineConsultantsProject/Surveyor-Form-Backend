@@ -39,6 +39,21 @@ export type SurveyorFormInsert = {
   accreditations: string[];
   coursesCompleted: string[];
 
+  // ✅ NEW: Other text fields
+  disciplineOther?: string | null;
+  rankOther?: string | null;
+
+  qualificationsOther?: string | null;
+
+  vesselTypesOther?: string | null;
+  shoresideExperienceOther?: string | null;
+
+  surveyingExperienceOther?: string | null;
+  vesselTypeSurveyingExperienceOther?: string | null;
+
+  accreditationsOther?: string | null;
+  coursesCompletedOther?: string | null;
+
   references: { name: string; contact: string }[];
 
   inspectionCost: string;
@@ -50,7 +65,6 @@ export type SurveyorFormInsert = {
 
 function normalizePhone(v?: string | null) {
   if (!v) return null;
-  // keep digits + optional leading +
   return v.trim().replace(/[^\d+]/g, "");
 }
 
@@ -61,6 +75,14 @@ export async function createForm(payload: SurveyorFormInsert) {
       email, dob_dd, dob_mm, dob_yyyy, year_started, heard_about,
       street1, street2, city, postal_code, country, state_region,
       discipline, rank,
+
+      -- ✅ NEW: other text columns
+      discipline_other, rank_other,
+      qualifications_other,
+      vessel_types_other, shoreside_experience_other,
+      surveying_experience_other, vessel_type_surveying_experience_other,
+      accreditations_other, courses_completed_other,
+
       qualifications, experience_by_qualification,
       vessel_types, shoreside_experience, surveying_experience, vessel_type_surveying_experience,
       accreditations, courses_completed,
@@ -72,12 +94,20 @@ export async function createForm(payload: SurveyorFormInsert) {
       $8,$9,$10,$11,$12,$13,
       $14,$15,$16,$17,$18,$19,
       $20,$21,
-      $22::jsonb,$23::jsonb,
-      $24::jsonb,$25::jsonb,$26::jsonb,$27::jsonb,
-      $28::jsonb,$29::jsonb,
-      $30::jsonb,
-      $31,$32,
-      $33,$34
+
+      -- ✅ NEW values
+      $22,$23,
+      $24,
+      $25,$26,
+      $27,$28,
+      $29,$30,
+
+      $31::jsonb,$32::jsonb,
+      $33::jsonb,$34::jsonb,$35::jsonb,$36::jsonb,
+      $37::jsonb,$38::jsonb,
+      $39::jsonb,
+      $40,$41,
+      $42,$43
     )
     RETURNING id`,
     [
@@ -106,6 +136,21 @@ export async function createForm(payload: SurveyorFormInsert) {
       payload.discipline,
       payload.rank,
 
+      // ✅ NEW: other values
+      (payload.disciplineOther ?? "").trim() || null,
+      (payload.rankOther ?? "").trim() || null,
+
+      (payload.qualificationsOther ?? "").trim() || null,
+
+      (payload.vesselTypesOther ?? "").trim() || null,
+      (payload.shoresideExperienceOther ?? "").trim() || null,
+
+      (payload.surveyingExperienceOther ?? "").trim() || null,
+      (payload.vesselTypeSurveyingExperienceOther ?? "").trim() || null,
+
+      (payload.accreditationsOther ?? "").trim() || null,
+      (payload.coursesCompletedOther ?? "").trim() || null,
+
       JSON.stringify(payload.qualifications ?? []),
       JSON.stringify(payload.experienceByQualification ?? {}),
 
@@ -124,7 +169,7 @@ export async function createForm(payload: SurveyorFormInsert) {
 
       payload.photoPath,
       payload.cvPath,
-    ]
+    ],
   );
 
   return rows[0];
@@ -159,6 +204,17 @@ export async function listForms(limit = 25, offset = 0) {
       discipline,
       rank,
 
+      -- ✅ NEW: return other fields for admin UI
+      discipline_other,
+      rank_other,
+      qualifications_other,
+      vessel_types_other,
+      shoreside_experience_other,
+      surveying_experience_other,
+      vessel_type_surveying_experience_other,
+      accreditations_other,
+      courses_completed_other,
+
       qualifications,
       experience_by_qualification,
 
@@ -183,7 +239,7 @@ export async function listForms(limit = 25, offset = 0) {
      FROM surveyor_forms
      ORDER BY created_at DESC
      LIMIT $1 OFFSET $2`,
-    [limit, offset]
+    [limit, offset],
   );
 }
 
@@ -194,7 +250,7 @@ export async function getStats() {
       COUNT(*) FILTER (WHERE COALESCE(reviewed,false) = false)::int AS pending,
       COUNT(*) FILTER (WHERE COALESCE(approved,false) = true)::int AS approved,
       COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::int AS new_today
-     FROM surveyor_forms`
+     FROM surveyor_forms`,
   );
   return rows[0];
 }
@@ -206,7 +262,7 @@ export async function markReviewed(id: number) {
          reviewed_at = NOW()
      WHERE id = $1
      RETURNING id, reviewed, reviewed_at`,
-    [id]
+    [id],
   );
   return rows[0];
 }
@@ -220,7 +276,7 @@ export async function approveForm(id: number) {
        AND reviewed = true
        AND approved = false
      RETURNING id, approved, approved_at`,
-    [id]
+    [id],
   );
   return rows[0];
 }

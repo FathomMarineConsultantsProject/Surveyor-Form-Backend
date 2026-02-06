@@ -2,9 +2,6 @@ import type { Request, Response } from "express"
 import path from "path"
 import { z } from "zod"
 import * as Model from "../models/SurveyorFormModel.js"
-//import type { Request, Response } from "express"
-
-
 
 // Helpers for multipart fields that arrive as strings
 function parseJsonField<T>(value: any, fallback: T): T {
@@ -16,14 +13,21 @@ function parseJsonField<T>(value: any, fallback: T): T {
     return fallback
   }
 }
-const nameRegex = /^[A-Za-z\s]+$/
-//const phoneRegex = /^\+?\d{7,15}$/
-const formSchema = z.object({
-  firstName: z.string().min(1).refine(v => nameRegex.test(v.trim()), "First name must contain letters only"),
-  lastName: z.string().min(1).refine(v => nameRegex.test(v.trim()), "Last name must contain letters only"),
 
-  phoneNumber: z.string().min(1),//.refine(v => phoneRegex.test(v.trim()), "Phone must contain digits only"),
-  mobileNumber: z.string().optional(),//.refine(v => !v || phoneRegex.test(v.trim()), "Mobile must contain digits only"),
+const nameRegex = /^[A-Za-z\s]+$/
+
+const formSchema = z.object({
+  firstName: z
+    .string()
+    .min(1)
+    .refine((v) => nameRegex.test(v.trim()), "First name must contain letters only"),
+  lastName: z
+    .string()
+    .min(1)
+    .refine((v) => nameRegex.test(v.trim()), "Last name must contain letters only"),
+
+  phoneNumber: z.string().min(1),
+  mobileNumber: z.string().optional(),
 
   nationality: z.string().min(1),
   employmentStatus: z.string().min(1),
@@ -53,13 +57,22 @@ const formSchema = z.object({
     .union([z.boolean(), z.string()])
     .transform((v) => (typeof v === "string" ? v === "true" : v))
     .default(false),
+
+  // ✅ NEW: accept Other fields from multipart (optional)
+  disciplineOther: z.string().optional(),
+  rankOther: z.string().optional(),
+
+  qualificationsOther: z.string().optional(),
+  vesselTypesOther: z.string().optional(),
+  shoresideExperienceOther: z.string().optional(),
+  surveyingExperienceOther: z.string().optional(),
+  vesselTypeSurveyingExperienceOther: z.string().optional(),
+  accreditationsOther: z.string().optional(),
+  coursesCompletedOther: z.string().optional(),
 })
 
 export async function submitForm(req: Request, res: Response) {
-  // multer puts files on req.files
-  const files = req.files as {
-    [fieldname: string]: Express.Multer.File[]
-  }
+  const files = req.files as { [fieldname: string]: Express.Multer.File[] }
 
   const photo = files?.photoFile?.[0]
   const cv = files?.cvFile?.[0]
@@ -67,7 +80,7 @@ export async function submitForm(req: Request, res: Response) {
   if (!photo) return res.status(400).json({ success: false, message: "photoFile is required" })
   if (!cv) return res.status(400).json({ success: false, message: "cvFile is required" })
 
-  // Validate base fields
+  // ✅ Validate base + other fields
   const base = formSchema.parse(req.body)
 
   // Parse JSON array/object fields from multipart
@@ -81,8 +94,36 @@ export async function submitForm(req: Request, res: Response) {
   const coursesCompleted = parseJsonField<string[]>(req.body.coursesCompleted, [])
   const references = parseJsonField<{ name: string; contact: string }[]>(req.body.references, [])
 
+  // ✅ Clean Other fields (avoid saving garbage whitespace)
+  const otherFields = {
+    disciplineOther: (base.disciplineOther ?? "").trim(),
+    rankOther: (base.rankOther ?? "").trim(),
+
+    qualificationsOther: (base.qualificationsOther ?? "").trim(),
+    vesselTypesOther: (base.vesselTypesOther ?? "").trim(),
+    shoresideExperienceOther: (base.shoresideExperienceOther ?? "").trim(),
+    surveyingExperienceOther: (base.surveyingExperienceOther ?? "").trim(),
+    vesselTypeSurveyingExperienceOther: (base.vesselTypeSurveyingExperienceOther ?? "").trim(),
+    accreditationsOther: (base.accreditationsOther ?? "").trim(),
+    coursesCompletedOther: (base.coursesCompletedOther ?? "").trim(),
+  }
+
+  // ✅ OPTIONAL: if not "Other", clear the other text so DB stays clean
+  if (base.discipline !== "other") otherFields.disciplineOther = ""
+  if (base.rank !== "other") otherFields.rankOther = ""
+
+  if (!qualifications.includes("Other")) otherFields.qualificationsOther = ""
+  if (!vesselTypes.includes("Other")) otherFields.vesselTypesOther = ""
+  if (!shoresideExperience.includes("Other")) otherFields.shoresideExperienceOther = ""
+  if (!surveyingExperience.includes("Other")) otherFields.surveyingExperienceOther = ""
+  if (!vesselTypeSurveyingExperience.includes("Other"))
+    otherFields.vesselTypeSurveyingExperienceOther = ""
+  if (!accreditations.includes("Other")) otherFields.accreditationsOther = ""
+  if (!coursesCompleted.includes("Other")) otherFields.coursesCompletedOther = ""
+
   const inserted = await Model.createForm({
     ...base,
+
     qualifications,
     experienceByQualification,
     vesselTypes,
@@ -92,6 +133,9 @@ export async function submitForm(req: Request, res: Response) {
     accreditations,
     coursesCompleted,
     references,
+
+    // ✅ NEW: pass other fields into model insert
+    ...otherFields,
 
     photoPath: path.posix.join("uploads", photo.filename),
     cvPath: path.posix.join("uploads", cv.filename),
@@ -110,6 +154,7 @@ export async function getForms(req: Request, res: Response) {
   const rows = await Model.listForms(limit, offset)
   return res.json({ success: true, data: rows })
 }
+
 export async function getStats(req: Request, res: Response) {
   const stats = await Model.getStats()
   return res.json({ success: true, data: stats })
@@ -130,6 +175,7 @@ export async function markFormReviewed(req: Request, res: Response) {
 
   return res.json({ success: true, data: updated })
 }
+
 export async function approveForm(req: Request, res: Response) {
   const id = Number(req.params.id)
   if (!id) return res.status(400).json({ success: false, message: "Invalid id" })
@@ -137,7 +183,6 @@ export async function approveForm(req: Request, res: Response) {
   const updated = await Model.approveForm(id)
 
   if (!updated) {
-    // Either not reviewed yet OR already approved OR not found
     return res.status(400).json({
       success: false,
       message: "Cannot approve: form must be reviewed first (or already approved).",
@@ -146,5 +191,3 @@ export async function approveForm(req: Request, res: Response) {
 
   return res.json({ success: true, data: updated })
 }
-
-
