@@ -164,6 +164,17 @@ app.get("/", (req, res) => {
     res.json({ ok: true, message: "Backend running ✅" });
 });
 app.use("/api", fileRoutes);
+// after routes
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("🔥 API Error:", err);
+  res.status(err?.status || 500).json({
+    success: false,
+    message: err?.message || "Internal Server Error",
+    // helpful on Vercel logs
+    stack: process.env.NODE_ENV === "production" ? undefined : err?.stack,
+  });
+});
+
 
 export default app;
 
