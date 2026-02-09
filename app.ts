@@ -1,88 +1,18 @@
-// import express from "express"
-// import cors from "cors"
-// import dotenv from "dotenv"
-// import path from "path"
-// import "express-async-errors"
-
-// import adminAuthRoutes from "./src/routes/adminAuthRoutes.js"
-// import formRoutes from "./src/routes/formRoutes.js"
-// import { errorHandler } from "./src/middleware/errorHandler.js"
-
-// dotenv.config()
-
-// const app = express()
-
-// // ✅ Allow frontend origins
-// const allowedOrigins = [
-//   "http://localhost:5173",
-//   "http://127.0.0.1:5173",
-//   "http://localhost:5174",
-//   "https://surveyor-admin-page-git-main-fmc-projects-projects.vercel.app",
-//   "https://surveyor-admin-page.vercel.app",
-//   "https://surveyor-register-page-k4cy.vercel.app",A
-// ]
-
-// const corsOptions: cors.CorsOptions = {
-//   origin: (origin, callback) => {
-//     // Allow Postman / server-to-server
-//     if (!origin) return callback(null, true)AA
-
-//     if (allowedOrigins.includes(origin)) {
-//       return callback(null, true)
-//     }
-
-//     console.error("❌ Blocked by CORS:", origin)
-//     return callback(new Error("Not allowed by CORS"))
-//   },
-//   credentials: true,
-//   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-//   allowedHeaders: ["Content-Type", "Authorization"],
-// }
-
-// // ✅ Apply CORS once
-// app.use(cors(corsOptions))
-
-// // ✅ Preflight must use SAME config
-// app.options("*", cors(corsOptions))
-
-// // ✅ Body parser
-// app.use(express.json())
-
-// // ✅ Static uploads
-// app.use(
-//   "/uploads",
-//   express.static(path.resolve(process.env.UPLOAD_DIR || "uploads"))
-// )
-
-// // ✅ Health check
-// app.get("/health", (req, res) => res.json({ ok: true }))
-
-// // ✅ Routes
-// app.use("/api/admin", adminAuthRoutes)
-// app.use("/api/form", formRoutes)
-
-// // ✅ Error handler LAST
-// app.use(errorHandler)
-// app.get("/", (req, res) => res.json({ ok: true, message: "Backend running ✅" }))
-
-
-// export default app
-
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import "express-async-errors";
+import cookieParser from "cookie-parser";
+
 import adminAuthRoutes from "./src/routes/adminAuthRoutes.js";
 import formRoutes from "./src/routes/formRoutes.js";
 import fileRoutes from "./src/routes/fileRoutes.js";
-
-// import { errorHandler } from "./src/middleware/errorHandler.js";
 import { pool } from "./src/config/db.js";
+
 dotenv.config();
 
 const app = express();
 
-// 1. Explicit Allowed Origins (Production & Local)
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
@@ -93,22 +23,14 @@ const allowedOrigins = [
   "https://surveyor-register-page-k4cy.vercel.app",
 ];
 
-// 2. Dynamic CORS Configuration
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, Postman, or server-to-server)
     if (!origin) return callback(null, true);
 
-    // Check against explicit list
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+    if (allowedOrigins.includes(origin)) return callback(null, true);
 
-    // ✅ FIX: Allow ALL Vercel preview URLs automatically
-    // This allows any URL ending in .vercel.app (e.g. your -mmb6thaes- url)
-    if (origin.endsWith(".vercel.app")) {
-      return callback(null, true);
-    }
+    // allow all vercel previews (optional)
+    if (origin.endsWith(".vercel.app")) return callback(null, true);
 
     console.error("❌ Blocked by CORS:", origin);
     return callback(new Error(`Not allowed by CORS: ${origin}`));
@@ -118,64 +40,48 @@ const corsOptions: cors.CorsOptions = {
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 };
 
-// 3. Apply CORS Middleware
 app.use(cors(corsOptions));
-
-// 4. Handle Preflight Requests Explicitly
-// Passing 'corsOptions' ensures OPTIONS requests get the same logic as POST/GET
 app.options("*", cors(corsOptions));
+app.use(cookieParser());
 
 app.use(express.json());
+app.use(cookieParser()); // ✅ IMPORTANT
 
-// Health Check
-app.get("/health", (req, res) => {
-    res.json({ ok: true });
-});
-app.get("/db-check", async (req, res) => {
+app.get("/health", (_req, res) => res.json({ ok: true }));
+
+app.get("/db-check", async (_req, res) => {
   try {
-    const client = await pool.connect(); // Try to get a client from the pool
-    const result = await client.query('SELECT NOW()'); // Run a simple query
-    client.release(); // Release the client back to the pool
-    
-    res.json({ 
-      status: "success", 
-      message: "Connected to AWS RDS Postgres!", 
-      time: result.rows[0] 
+    const client = await pool.connect();
+    const result = await client.query("SELECT NOW()");
+    client.release();
+    res.json({
+      status: "success",
+      message: "Connected to AWS RDS Postgres!",
+      time: result.rows[0],
     });
   } catch (error: any) {
     console.error("Database Error:", error);
-    res.status(500).json({ 
-      status: "error", 
-      message: "Failed to connect to DB", 
-      error: error.message 
+    res.status(500).json({
+      status: "error",
+      message: "Failed to connect to DB",
+      error: error.message,
     });
   }
 });
 
-// Routes
 app.use("/api/admin", adminAuthRoutes);
 app.use("/api/form", formRoutes);
-
-// Error Handler
-// app.use(errorHandler);
-
-// Root Endpoint
-app.get("/", (req, res) => {
-    res.json({ ok: true, message: "Backend running ✅" });
-});
 app.use("/api", fileRoutes);
-// after routes
-app.use((err: any, req: any, res: any, next: any) => {
+
+app.get("/", (_req, res) => res.json({ ok: true, message: "Backend running ✅" }));
+
+app.use((err: any, _req: any, res: any, _next: any) => {
   console.error("🔥 API Error:", err);
   res.status(err?.status || 500).json({
     success: false,
     message: err?.message || "Internal Server Error",
-    // helpful on Vercel logs
     stack: process.env.NODE_ENV === "production" ? undefined : err?.stack,
   });
 });
 
-
 export default app;
-
-

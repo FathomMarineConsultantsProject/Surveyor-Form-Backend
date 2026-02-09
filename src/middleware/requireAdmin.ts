@@ -1,23 +1,29 @@
-import type { Request, Response, NextFunction } from "express"
-import jwt from "jsonwebtoken"
+import type { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  const auth = req.headers.authorization || ""
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : ""
+  // ✅ 1) cookie token (new)
+  let token = (req as any).cookies?.admin_token as string | undefined;
 
-  if (!token) return res.status(401).json({ success: false, message: "Unauthorized" })
+  // ✅ 2) allow old Bearer token for now (optional, helps migration)
+  if (!token) {
+    const auth = req.headers.authorization || "";
+    token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  }
+
+  if (!token) return res.status(401).json({ success: false, message: "Unauthorized" });
 
   try {
-    const secret = process.env.JWT_SECRET!
-    const decoded = jwt.verify(token, secret) as any
+    const secret = process.env.JWT_SECRET!;
+    const decoded = jwt.verify(token, secret) as any;
 
     if (decoded?.role !== "admin") {
-      return res.status(403).json({ success: false, message: "Forbidden" })
+      return res.status(403).json({ success: false, message: "Forbidden" });
     }
 
-    ;(req as any).user = decoded
-    next()
+    (req as any).user = decoded;
+    next();
   } catch {
-    return res.status(401).json({ success: false, message: "Invalid token" })
+    return res.status(401).json({ success: false, message: "Invalid token" });
   }
 }
