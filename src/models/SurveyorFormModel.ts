@@ -27,10 +27,7 @@ export type SurveyorFormInsert = {
   rank: string;
 
   qualifications: string[];
-  experienceByQualification: Record<
-    string,
-    { years: string; months: string; days: string }
-  >;
+  experienceByQualification: Record<string, { years: string; months: string; days: string }>;
 
   vesselTypes: string[];
   shoresideExperience: string[];
@@ -39,7 +36,6 @@ export type SurveyorFormInsert = {
   accreditations: string[];
   coursesCompleted: string[];
 
-  // ✅ NEW: Other text fields
   disciplineOther?: string | null;
   rankOther?: string | null;
 
@@ -59,8 +55,13 @@ export type SurveyorFormInsert = {
   inspectionCost: string;
   marketingConsent: boolean;
 
-  photoPath: string;
-  cvPath: string;
+  // ✅ Legacy (local uploads) - optional now
+  photoPath?: string | null;
+  cvPath?: string | null;
+
+  // ✅ New (S3) - optional
+  photoS3Key?: string | null;
+  cvS3Key?: string | null;
 };
 
 function normalizePhone(v?: string | null) {
@@ -76,7 +77,6 @@ export async function createForm(payload: SurveyorFormInsert) {
       street1, street2, city, postal_code, country, state_region,
       discipline, rank,
 
-      -- ✅ NEW: other text columns
       discipline_other, rank_other,
       qualifications_other,
       vessel_types_other, shoreside_experience_other,
@@ -88,14 +88,16 @@ export async function createForm(payload: SurveyorFormInsert) {
       accreditations, courses_completed,
       refs,
       inspection_cost, marketing_consent,
-      photo_path, cv_path
+
+      -- ✅ both legacy + s3 columns
+      photo_path, cv_path,
+      photo_s3_key, cv_s3_key
     ) VALUES (
       $1,$2,$3,$4,$5,$6,$7,
       $8,$9,$10,$11,$12,$13,
       $14,$15,$16,$17,$18,$19,
       $20,$21,
 
-      -- ✅ NEW values
       $22,$23,
       $24,
       $25,$26,
@@ -107,7 +109,12 @@ export async function createForm(payload: SurveyorFormInsert) {
       $37::jsonb,$38::jsonb,
       $39::jsonb,
       $40,$41,
-      $42,$43
+
+      -- ✅ legacy
+      $42,$43,
+
+      -- ✅ s3
+      $44,$45
     )
     RETURNING id`,
     [
@@ -136,7 +143,6 @@ export async function createForm(payload: SurveyorFormInsert) {
       payload.discipline,
       payload.rank,
 
-      // ✅ NEW: other values
       (payload.disciplineOther ?? "").trim() || null,
       (payload.rankOther ?? "").trim() || null,
 
@@ -167,9 +173,14 @@ export async function createForm(payload: SurveyorFormInsert) {
       payload.inspectionCost,
       payload.marketingConsent,
 
-      payload.photoPath,
-      payload.cvPath,
-    ],
+      // ✅ legacy paths (nullable)
+      payload.photoPath ?? null,
+      payload.cvPath ?? null,
+
+      // ✅ s3 keys (nullable)
+      payload.photoS3Key ?? null,
+      payload.cvS3Key ?? null,
+    ]
   );
 
   return rows[0];
@@ -204,7 +215,6 @@ export async function listForms(limit = 25, offset = 0) {
       discipline,
       rank,
 
-      -- ✅ NEW: return other fields for admin UI
       discipline_other,
       rank_other,
       qualifications_other,
@@ -233,13 +243,18 @@ export async function listForms(limit = 25, offset = 0) {
 
       photo_path,
       cv_path,
+
+      -- ✅ return s3 keys too
+      photo_s3_key,
+      cv_s3_key,
+
       reviewed, reviewed_at,
       approved, approved_at,
       created_at
      FROM surveyor_forms
      ORDER BY created_at DESC
      LIMIT $1 OFFSET $2`,
-    [limit, offset],
+    [limit, offset]
   );
 }
 
@@ -250,7 +265,7 @@ export async function getStats() {
       COUNT(*) FILTER (WHERE COALESCE(reviewed,false) = false)::int AS pending,
       COUNT(*) FILTER (WHERE COALESCE(approved,false) = true)::int AS approved,
       COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::int AS new_today
-     FROM surveyor_forms`,
+     FROM surveyor_forms`
   );
   return rows[0];
 }
@@ -262,7 +277,7 @@ export async function markReviewed(id: number) {
          reviewed_at = NOW()
      WHERE id = $1
      RETURNING id, reviewed, reviewed_at`,
-    [id],
+    [id]
   );
   return rows[0];
 }
@@ -276,7 +291,35 @@ export async function approveForm(id: number) {
        AND reviewed = true
        AND approved = false
      RETURNING id, approved, approved_at`,
-    [id],
+    [id]
   );
   return rows[0];
+}
+
+/** ✅ Used by delete controller */
+export async function getFormKeysById(id: number) {
+  const rows = await query<{
+    id: number;
+    photo_s3_key: string | null;
+    cv_s3_key: string | null;
+    photo_path: string | null;
+    cv_path: string | null;
+  }>(
+    `SELECT id, photo_s3_key, cv_s3_key, photo_path, cv_path
+     FROM surveyor_forms
+     WHERE id = $1`,
+    [id]
+  );
+  return rows[0] ?? null;
+}
+
+/** ✅ Used by delete controller */
+export async function deleteFormRowById(id: number) {
+  const rows = await query<{ id: number }>(
+    `DELETE FROM surveyor_forms
+     WHERE id = $1
+     RETURNING id`,
+    [id]
+  );
+  return rows[0] ?? null;
 }

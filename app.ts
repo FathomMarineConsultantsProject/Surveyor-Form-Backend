@@ -74,6 +74,7 @@ import dotenv from "dotenv";
 import "express-async-errors";
 import adminAuthRoutes from "./src/routes/adminAuthRoutes.js";
 import formRoutes from "./src/routes/formRoutes.js";
+import fileRoutes from "./src/routes/fileRoutes.js";
 
 // import { errorHandler } from "./src/middleware/errorHandler.js";
 import { pool } from "./src/config/db.js";
@@ -162,6 +163,7 @@ app.use("/api/form", formRoutes);
 app.get("/", (req, res) => {
     res.json({ ok: true, message: "Backend running ✅" });
 });
+app.use("/api", fileRoutes);
 
 export default app;
 

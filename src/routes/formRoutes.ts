@@ -9,6 +9,7 @@ import {
   markFormReviewed,
   getStats,
   approveForm,
+  deleteFormById,
 } from "../controllers/formController.js"
 import { requireAdmin } from "../middleware/requireAdmin.js"
 
@@ -78,6 +79,9 @@ router.get("/records", requireAdmin, getForms)
 router.get("/stats", requireAdmin, getStats)
 router.patch("/:id/review", requireAdmin, markFormReviewed)
 router.patch("/:id/approve", requireAdmin, approveForm)
+// ✅ DELETE by id
+router.delete("/:id", deleteFormById);
+
 
 router.get("/ping", (_req, res) => res.json({ ok: true, route: "form" }))
 
