@@ -2,14 +2,14 @@ import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  // ✅ 1) cookie token (new)
-  let token = (req as any).cookies?.admin_token as string | undefined;
+  // ✅ cookie first
+  const cookieToken = (req as any).cookies?.admin_token;
 
-  // ✅ 2) allow old Bearer token for now (optional, helps migration)
-  if (!token) {
-    const auth = req.headers.authorization || "";
-    token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  }
+  // ✅ fallback to Bearer (optional)
+  const auth = req.headers.authorization || "";
+  const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+
+  const token = cookieToken || bearer;
 
   if (!token) return res.status(401).json({ success: false, message: "Unauthorized" });
 

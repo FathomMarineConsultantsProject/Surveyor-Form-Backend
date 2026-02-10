@@ -7,55 +7,49 @@ import { GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 const router = express.Router();
 
 /**
- * POST /api/files/presign
- * body: { kind: "photo" | "cv", contentType: string }
- * returns: { key, uploadUrl }
- *
- * ✅ still useful if you upload directly from frontend to S3
+ * Optional: direct upload presign
  */
 router.post("/files/presign", async (req, res) => {
-  const { kind, contentType } = req.body as { kind: "photo" | "cv"; contentType: string };
+  const { kind, contentType } = req.body;
 
-  if (!kind || !contentType) return res.status(400).json({ message: "kind and contentType required" });
+  if (!kind || !contentType) {
+    return res.status(400).json({ message: "kind and contentType required" });
+  }
 
   const isPhoto = kind === "photo";
   const isCv = kind === "cv";
 
   if (isPhoto && !contentType.startsWith("image/")) {
-    return res.status(400).json({ message: "Photo must be an image/*" });
+    return res.status(400).json({ message: "Photo must be image/*" });
   }
 
-  // You allowed only PDF earlier. If you want DOC/DOCX too, update this check.
   if (isCv && contentType !== "application/pdf") {
-    return res.status(400).json({ message: "CV must be application/pdf" });
+    return res.status(400).json({ message: "CV must be PDF" });
   }
 
   const id = crypto.randomUUID();
-  const ext = isPhoto ? "img" : "pdf";
-  const key = isPhoto ? `photos/${id}.${ext}` : `cvs/${id}.${ext}`;
+  const key = isPhoto ? `photos/${id}.img` : `cvs/${id}.pdf`;
 
   const uploadUrl = await presignPut(key, contentType, 300);
-  return res.json({ key, uploadUrl });
+  res.json({ key, uploadUrl });
 });
 
 /**
- * ✅ NEW (Option B):
+ * ✅ OPTION B — NO EXPIRY
  * GET /api/files/stream?key=...
- * Requires admin cookie auth
- * Streams file directly from S3 (NO expiry problems)
  */
 router.get("/files/stream", requireAdmin, async (req, res) => {
   const key = String(req.query.key || "");
-  if (!key) return res.status(400).json({ success: false, message: "key required" });
-
-  const Bucket = getBucket();
+  if (!key) return res.status(400).json({ message: "key required" });
 
   try {
+    const Bucket = getBucket();
+
     const head = await s3.send(new HeadObjectCommand({ Bucket, Key: key }));
     const contentType = head.ContentType || "application/octet-stream";
 
     const obj = await s3.send(new GetObjectCommand({ Bucket, Key: key }));
-    if (!obj.Body) return res.status(404).json({ success: false, message: "File not found" });
+    if (!obj.Body) return res.status(404).json({ message: "Not found" });
 
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Disposition", "inline");
@@ -64,7 +58,7 @@ router.get("/files/stream", requireAdmin, async (req, res) => {
     (obj.Body as any).pipe(res);
   } catch (err) {
     console.error("S3 stream error:", err);
-    return res.status(404).json({ success: false, message: "File not found" });
+    res.status(404).json({ message: "File not found" });
   }
 });
 

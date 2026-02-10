@@ -13,6 +13,9 @@ dotenv.config();
 
 const app = express();
 
+// ✅ REQUIRED on Vercel/Proxies so secure cookies work
+app.set("trust proxy", 1);
+
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
@@ -24,29 +27,29 @@ const allowedOrigins = [
 ];
 
 const corsOptions: cors.CorsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
 
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // ✅ allow listed origins
+    if (allowedOrigins.includes(origin)) return cb(null, true);
 
-    // allow all vercel previews (optional)
-    if (origin.endsWith(".vercel.app")) return callback(null, true);
+    // ✅ allow any vercel preview url
+    if (origin.endsWith(".vercel.app")) return cb(null, true);
 
-    console.error("❌ Blocked by CORS:", origin);
-    return callback(new Error(`Not allowed by CORS: ${origin}`));
+    return cb(new Error(`Not allowed by CORS: ${origin}`));
   },
-  credentials: true,
+  credentials: true, // ✅ REQUIRED for cookies
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 };
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
-app.use(cookieParser());
 
 app.use(express.json());
-app.use(cookieParser()); // ✅ IMPORTANT
+app.use(cookieParser()); // ✅ REQUIRED
 
+// Health
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.get("/db-check", async (_req, res) => {
@@ -56,11 +59,10 @@ app.get("/db-check", async (_req, res) => {
     client.release();
     res.json({
       status: "success",
-      message: "Connected to AWS RDS Postgres!",
+      message: "Connected to Postgres!",
       time: result.rows[0],
     });
   } catch (error: any) {
-    console.error("Database Error:", error);
     res.status(500).json({
       status: "error",
       message: "Failed to connect to DB",
@@ -69,12 +71,15 @@ app.get("/db-check", async (_req, res) => {
   }
 });
 
+// Routes
 app.use("/api/admin", adminAuthRoutes);
 app.use("/api/form", formRoutes);
 app.use("/api", fileRoutes);
 
+// Root
 app.get("/", (_req, res) => res.json({ ok: true, message: "Backend running ✅" }));
 
+// Error handler
 app.use((err: any, _req: any, res: any, _next: any) => {
   console.error("🔥 API Error:", err);
   res.status(err?.status || 500).json({
