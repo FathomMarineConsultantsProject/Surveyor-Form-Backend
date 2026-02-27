@@ -54,6 +54,19 @@ const formSchema = z.object({
 
   inspectionCost: z.string().min(1),
 
+  // ✅ References (new structure)
+  references: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        email: z.string().email(),
+        phoneNumber: z.string().min(1),
+        position: z.string().min(1),
+        companyName: z.string().min(1),
+      }),
+    )
+    .min(2),
+
   marketingConsent: z
     .union([z.boolean(), z.string()])
     .transform((v) => (typeof v === "string" ? v === "true" : v))
@@ -76,19 +89,27 @@ const formSchema = z.object({
 })
 
 export async function submitForm(req: Request, res: Response) {
-  // ✅ validate JSON body
+  // ✅ validate JSON body (includes references)
   const base = formSchema.parse(req.body)
 
-  // arrays/objects
+  // arrays/objects (these may still arrive as JSON strings)
   const qualifications = parseJsonField<string[]>(req.body.qualifications, [])
-  const experienceByQualification = parseJsonField<Record<string, any>>(req.body.experienceByQualification, {})
+  const experienceByQualification = parseJsonField<Record<string, any>>(
+    req.body.experienceByQualification,
+    {},
+  )
   const vesselTypes = parseJsonField<string[]>(req.body.vesselTypes, [])
   const shoresideExperience = parseJsonField<string[]>(req.body.shoresideExperience, [])
   const surveyingExperience = parseJsonField<string[]>(req.body.surveyingExperience, [])
-  const vesselTypeSurveyingExperience = parseJsonField<string[]>(req.body.vesselTypeSurveyingExperience, [])
+  const vesselTypeSurveyingExperience = parseJsonField<string[]>(
+    req.body.vesselTypeSurveyingExperience,
+    [],
+  )
   const accreditations = parseJsonField<string[]>(req.body.accreditations, [])
   const coursesCompleted = parseJsonField<string[]>(req.body.coursesCompleted, [])
-  const references = parseJsonField<{ name: string; contact: string }[]>(req.body.references, [])
+
+  // ✅ references already validated by zod
+  const references = base.references
 
   // Clean other text fields
   const otherFields = {
@@ -111,12 +132,12 @@ export async function submitForm(req: Request, res: Response) {
   if (!vesselTypes.includes("Other")) otherFields.vesselTypesOther = ""
   if (!shoresideExperience.includes("Other")) otherFields.shoresideExperienceOther = ""
   if (!surveyingExperience.includes("Other")) otherFields.surveyingExperienceOther = ""
-  if (!vesselTypeSurveyingExperience.includes("Other")) otherFields.vesselTypeSurveyingExperienceOther = ""
+  if (!vesselTypeSurveyingExperience.includes("Other"))
+    otherFields.vesselTypeSurveyingExperienceOther = ""
   if (!accreditations.includes("Other")) otherFields.accreditationsOther = ""
   if (!coursesCompleted.includes("Other")) otherFields.coursesCompletedOther = ""
 
-  // ✅ Option A: store S3 keys as photoPath/cvPath (your DB expects photo_path/cv_path NOT NULL)
-  // Store the KEY (e.g. "photos/uuid.png") OR full https URL — pick ONE format and keep consistent.
+  // ✅ store S3 keys
   const photoPath = base.photoS3Key.trim()
   const cvPath = base.cvS3Key.trim()
 
@@ -131,11 +152,11 @@ export async function submitForm(req: Request, res: Response) {
     vesselTypeSurveyingExperience,
     accreditations,
     coursesCompleted,
+
     references,
 
     ...otherFields,
 
-    // ✅ IMPORTANT: satisfy NOT NULL constraint
     photoPath,
     cvPath,
   })
@@ -189,12 +210,9 @@ export async function deleteFormById(req: Request, res: Response) {
     const id = Number(req.params.id)
     if (!id) return res.status(400).json({ success: false, message: "Invalid id" })
 
-    // Must exist in your model: returns { photo_path, cv_path } (either s3 key or full url)
     const row = await Model.getFormKeysById(id)
     if (!row) return res.status(404).json({ success: false, message: "Form not found" })
 
-    // If you stored KEY in photo_path/cv_path, delete those keys:
-    // If you stored full URL, you must extract the key before deleting.
     const photoKey = row.photo_path
     const cvKey = row.cv_path
 

@@ -50,7 +50,16 @@ export type SurveyorFormInsert = {
   accreditationsOther?: string | null;
   coursesCompletedOther?: string | null;
 
-  references: { name: string; contact: string }[];
+  references: {
+  name: string;
+  email?: string;        // new
+  phoneNumber?: string;  // new
+  position?: string;     // new
+  companyName?: string;  // new
+
+  // backward compat (old data)
+  contact?: string;
+}[];
 
   inspectionCost: string;
   marketingConsent: boolean;
@@ -63,6 +72,26 @@ export type SurveyorFormInsert = {
   photoS3Key?: string | null;
   cvS3Key?: string | null;
 };
+function normalizeRefs(
+  refs: SurveyorFormInsert["references"],
+): {
+  name: string;
+  email: string;
+  phoneNumber: string;
+  position: string;
+  companyName: string;
+}[] {
+  return (refs ?? []).map((r) => ({
+    name: (r.name ?? "").trim(),
+
+    // If new email exists use it, else try to pull from old `contact` if it looks like email.
+    email: (r.email ?? "").trim(),
+
+    phoneNumber: (r.phoneNumber ?? "").trim(),
+    position: (r.position ?? "").trim(),
+    companyName: (r.companyName ?? "").trim(),
+  }));
+}
 
 function normalizePhone(v?: string | null) {
   if (!v) return null;
@@ -168,7 +197,7 @@ export async function createForm(payload: SurveyorFormInsert) {
       JSON.stringify(payload.accreditations ?? []),
       JSON.stringify(payload.coursesCompleted ?? []),
 
-      JSON.stringify(payload.references ?? []),
+      JSON.stringify(normalizeRefs(payload.references)),
 
       payload.inspectionCost,
       payload.marketingConsent,
