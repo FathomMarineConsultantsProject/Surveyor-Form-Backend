@@ -15,7 +15,19 @@ function parseJsonField<T>(value: any, fallback: T): T {
 }
 
 const nameRegex = /^[A-Za-z\s]+$/
+const BLOCKED_EMAILS = [
+  "contact@fathommarineconsultants.com",
+  "project@fathommarineconsultants.com",
+  "nipun.chatrath@fathommarineconsultants.com",
+];
 
+const BLOCKED_PHONES = [
+  "+919136936173","+447473819363","+919892742642"
+];
+
+const BLOCKED_COMPANIES = [
+  "fathom marine consultants","Fathom marine"
+];
 // ✅ Option A: S3 presigned upload -> backend receives JSON body with S3 keys
 const formSchema = z.object({
   firstName: z
@@ -91,6 +103,23 @@ const formSchema = z.object({
 export async function submitForm(req: Request, res: Response) {
   // ✅ validate JSON body (includes references)
   const base = formSchema.parse(req.body)
+  base.references.forEach((ref) => {
+  const email = (ref.email ?? "").toLowerCase().trim();
+  const phone = (ref.phoneNumber ?? "").replace(/\s/g, "");
+  const company = (ref.companyName ?? "").toLowerCase().trim();
+
+  if (BLOCKED_EMAILS.some(e => e.toLowerCase() === email)) {
+    throw new Error("This email cannot be used as reference.");
+  }
+
+  if (BLOCKED_PHONES.some(p => p.replace(/\s/g, "") === phone)) {
+    throw new Error("This phone number cannot be used as reference.");
+  }
+
+  if (BLOCKED_COMPANIES.some(c => c.toLowerCase() === company)) {
+    throw new Error("This company cannot be used as reference.");
+  }
+});
 
   // arrays/objects (these may still arrive as JSON strings)
   const qualifications = parseJsonField<string[]>(req.body.qualifications, [])
